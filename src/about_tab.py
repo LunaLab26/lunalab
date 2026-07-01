@@ -8,7 +8,7 @@ Open-source licenses button. Theme-aware via the palette controller.
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtGui import QDesktopServices, QPixmap
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QApplication,
     QPushButton, QScrollArea, QFrame,
@@ -22,6 +22,8 @@ import theme
 _ASSETS = Path(__file__).parent / "assets"
 
 FEEDBACK_URL = "https://forms.gle/AGpUvFczRqKUKycz8"
+COFFEE_URL   = "https://www.buymeacoffee.com/LunaVault"
+_COFFEE_QR   = _ASSETS / "qr_coffee.png"
 
 STORY_TEXT = (
     "Hello — I'm John.\n\n"
@@ -213,17 +215,60 @@ class AboutTab(QWidget):
         self._coffee_lbl.setWordWrap(True)
         lay.addWidget(self._coffee_lbl)
 
+        # ── Primary: Buy me a coffee (one click for everyone) ─────────────────
+        self._bmc_btn = QPushButton("☕  Buy me a coffee")
+        self._bmc_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._bmc_btn.setFixedHeight(46)
+        self._bmc_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(COFFEE_URL)))
+        bmc_row = QHBoxLayout()
+        bmc_row.addStretch(); bmc_row.addWidget(self._bmc_btn); bmc_row.addStretch()
+        lay.addLayout(bmc_row)
+
+        if _COFFEE_QR.exists():
+            qr = QLabel()
+            qr.setPixmap(QPixmap(str(_COFFEE_QR)).scaled(
+                122, 122, Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation))
+            qr.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self._coffee_qr_cap = QLabel("or scan to buy me a coffee")
+            self._coffee_qr_cap.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            qcol = QVBoxLayout(); qcol.setSpacing(4)
+            qcol.addWidget(qr); qcol.addWidget(self._coffee_qr_cap)
+            qwrap = QHBoxLayout(); qwrap.addStretch(); qwrap.addLayout(qcol); qwrap.addStretch()
+            lay.addLayout(qwrap)
+
+        # ── Secondary: crypto, tucked behind a reveal ─────────────────────────
+        self._crypto_toggle = QPushButton()
+        self._crypto_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._crypto_toggle.clicked.connect(self._toggle_crypto)
+        lay.addWidget(self._crypto_toggle)
+
+        self._crypto_box = QWidget()
+        cbox = QVBoxLayout(self._crypto_box)
+        cbox.setContentsMargins(0, 4, 0, 0)
+        cbox.setSpacing(10)
         cards_row = QHBoxLayout()
         cards_row.setSpacing(14)
-        self._crypto_frames = []
         for crypto in _CRYPTO:
             cards_row.addWidget(self._make_crypto_card(crypto))
-        lay.addLayout(cards_row)
-
+        cbox.addLayout(cards_row)
         self._support_footer = QLabel("Crypto addresses shown are the developer's own wallets.")
         self._support_footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lay.addWidget(self._support_footer)
+        cbox.addWidget(self._support_footer)
+        lay.addWidget(self._crypto_box)
+        self._crypto_box.setVisible(False)
+        self._crypto_open = False
+        self._update_crypto_toggle()
         return card
+
+    def _toggle_crypto(self):
+        self._crypto_open = not self._crypto_open
+        self._crypto_box.setVisible(self._crypto_open)
+        self._update_crypto_toggle()
+
+    def _update_crypto_toggle(self):
+        chevron = "▾" if self._crypto_open else "▸"
+        self._crypto_toggle.setText(f"Prefer crypto?   {chevron}")
 
     def _make_crypto_card(self, crypto: dict) -> QFrame:
         color = crypto["color"]
@@ -333,6 +378,17 @@ class AboutTab(QWidget):
             f"QPushButton:hover {{ border-color:{p.accent}; }}")
         self._coffee_lbl.setStyleSheet(f"font-size:13px; color:{p.text}; border:none;")
         self._support_footer.setStyleSheet(f"font-size:11px; color:{p.text_dim}; font-style:italic; border:none;")
+        # Buy Me a Coffee brand button — keep its recognisable yellow in both themes
+        self._bmc_btn.setStyleSheet(
+            "QPushButton { background:#FFDD00; color:#000000; border:1px solid #000000; "
+            "border-radius:8px; font-size:15px; font-weight:bold; padding:0 26px; }"
+            "QPushButton:hover { background:#FFE84D; }")
+        self._crypto_toggle.setStyleSheet(
+            f"QPushButton {{ background:transparent; color:{p.text_mute}; border:none; "
+            "font-size:12px; text-align:left; padding:2px 0; }"
+            f"QPushButton:hover {{ color:{p.accent}; }}")
+        if hasattr(self, "_coffee_qr_cap"):
+            self._coffee_qr_cap.setStyleSheet(f"color:{p.text_dim}; font-size:11px; border:none;")
         for name_lbl, desc_lbl, link_btn in self._credit_rows:
             name_lbl.setStyleSheet(f"font-size:13px; font-weight:bold; color:{p.text};")
             desc_lbl.setStyleSheet(f"font-size:12px; color:{p.text_mute};")
